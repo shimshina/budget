@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ru"><head>
+<title>Бюджет</title>
+<meta charset="utf-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Бюджет">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-family:system-ui,-apple-system,sans-serif}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">
+</head><body>
+<style>
+/* Layout: one mobile column — balance hero, quick entry, envelopes, stats, history, period settings */
+:root{
+  --bg:#EEF2F0; --surface:#FFFFFF; --ink:#13201D; --muted:#5E6E69; --line:#D5DEDA;
+  --accent:#0B7A63; --accent-soft:#D6EEE7; --warn:#B76E00; --warn-soft:#F7E7CC; --bad:#C0392B; --bad-soft:#F6DAD6;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1614; --surface:#18221F; --ink:#E6EEEB; --muted:#93A39E; --line:#2A3833;
+  --accent:#3FC7A4; --accent-soft:#173A31; --warn:#F0A63A; --warn-soft:#3A2D16; --bad:#F07565; --bad-soft:#3E1F1B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1614; --surface:#18221F; --ink:#E6EEEB; --muted:#93A39E; --line:#2A3833;
+  --accent:#3FC7A4; --accent-soft:#173A31; --warn:#F0A63A; --warn-soft:#3A2D16; --bad:#F07565; --bad-soft:#3E1F1B; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.num{font-variant-numeric:tabular-nums}
+h1{font-family:var(--display);font-weight:700;font-size:20px;margin:0;letter-spacing:-.01em}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.chip{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.hero{background:var(--ink);color:var(--bg);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.hero .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.7}
+.hero .big{font-family:var(--display);font-size:38px;font-weight:700;line-height:1.05}
+.hero .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hero .row div{min-width:0}
+.hero .mid{font-family:var(--display);font-size:19px;font-weight:500}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;padding:9px 4px;border-radius:8px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.form{display:flex;flex-direction:column;gap:12px}
+.amount{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--line);padding-bottom:4px}
+.amount:focus-within{border-color:var(--accent)}
+.amount input{border:0;background:transparent;font-family:var(--display);font-size:30px;font-weight:700;color:var(--ink);width:100%;min-width:0;outline:none}
+.amount span{font-family:var(--display);font-size:22px;color:var(--muted)}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.cats button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+.cats button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.two>*{min-width:0}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;max-width:100%;min-height:44px;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+input[type=text],input[type=date],input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0;box-sizing:border-box}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:0;border-radius:12px;padding:13px;font:inherit;font-weight:700;background:var(--accent);color:var(--surface);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:600}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.toast{font-size:13px;color:var(--accent);min-height:18px;margin:0}
+.env{display:flex;flex-direction:column;gap:14px}
+.e .head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.e .name{font-weight:600}
+.e .rest{font-family:var(--display);font-weight:500;font-size:16px}
+.e .sub{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;margin-top:3px}
+.bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.e.warn .bar i{background:var(--warn)} .e.warn .rest{color:var(--warn)}
+.e.over .bar i{background:var(--bad)} .e.over .rest{color:var(--bad)}
+.pill{font-size:11px;padding:2px 7px;border-radius:999px;margin-left:6px;font-weight:600;vertical-align:2px}
+.pill.over{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.res{background:var(--accent-soft);color:var(--accent)}
+.days{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;height:110px;margin-top:6px}
+.days div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px;min-width:0}
+.days b{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.days b.zero{background:var(--line)}
+.days span{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.stats-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stats-sum div{background:var(--bg);border-radius:10px;padding:10px;min-width:0}
+.stats-sum small{display:block;font-size:11.5px;color:var(--muted)}
+.stats-sum strong{font-size:15px}
+.hist{display:flex;flex-direction:column}
+.day{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:12px 0 4px;font-weight:600}
+.edit{border:0;background:transparent;color:var(--muted);font:inherit;font-size:16px;cursor:pointer;padding:6px}
+.banner{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:9px 12px;font-size:13.5px;font-weight:600;margin:0}
+.tx{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.tx .t{min-width:0} .tx .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx .t small{color:var(--muted);font-size:12.5px}
+.tx .a{font-weight:600}
+.tx .a.in{color:var(--accent)}
+.del{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;padding:6px}
+.del.armed{color:var(--bad);font-weight:600}
+details summary{cursor:pointer;font-weight:600;list-style:none}
+details summary::-webkit-details-marker{display:none}
+.erow{display:grid;grid-template-columns:1fr 110px 34px;gap:6px;align-items:center}
+.erow button{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
+.empty{text-align:center;color:var(--muted);padding:12px 0}
+.offline{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px}
+@media (prefers-reduced-motion:no-preference){.bar i,.days b{transition:height .3s,width .3s}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>Бюджет</h1>
+    <span class="chip num" id="periodChip">Загрузка…</span>
+  </div>
+  <div class="offline" id="offline" hidden>Браузер не даёт сохранять данные в этом окне. Открой файл в Safari или Chrome, а не в режиме просмотра, иначе записи пропадут.</div>
+
+  <section class="hero" aria-label="Сводка">
+    <div>
+      <div class="lbl">На руках сейчас</div>
+      <div class="big num" id="balance">—</div>
+    </div>
+    <div class="row">
+      <div><div class="lbl">Свободно</div><div class="mid num" id="free">—</div></div>
+      <div><div class="lbl">Продукты в день</div><div class="mid num" id="perDay">—</div></div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Новая запись">
+    <form class="form" id="addForm">
+      <p class="banner" id="editBanner" hidden></p>
+      <div class="seg" role="group" aria-label="Тип">
+        <button type="button" data-kind="expense" aria-pressed="true">Трата</button>
+        <button type="button" data-kind="income" aria-pressed="false">Доход</button>
+        <button type="button" data-kind="adjust" aria-pressed="false">Сверка</button>
+      </div>
+      <label class="amount"><input id="amt" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Сумма"><span>₽</span></label>
+      <p class="hint" id="kindHint" hidden></p>
+      <div class="cats" id="cats" role="group" aria-label="Категория"></div>
+      <div class="two">
+        <input type="text" id="note" placeholder="Комментарий" autocomplete="off">
+        <input type="date" id="date" aria-label="Дата">
+      </div>
+      <button class="btn" id="addBtn" type="submit">Добавить трату</button>
+      <button class="btn ghost" id="cancelEdit" type="button" hidden>Отменить изменение</button>
+      <p class="toast" id="toast" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Конверты на период</h2>
+    <div class="env" id="envs"><p class="empty">Загружаю…</p></div>
+  </section>
+
+  <section class="card">
+    <h2>Статистика периода</h2>
+    <div class="stats-sum">
+      <div><small>Потрачено</small><strong class="num" id="sSpent">—</strong></div>
+      <div><small>Получено</small><strong class="num" id="sIn">—</strong></div>
+      <div><small>Средняя трата/день</small><strong class="num" id="sAvg">—</strong></div>
+    </div>
+    <h2>Траты за 14 дней</h2>
+    <div class="days" id="days"></div>
+    <p class="hint num" id="daysMax" style="margin-top:8px"></p>
+  </section>
+
+  <section class="card">
+    <h2>История</h2>
+    <div class="hist" id="hist"><p class="empty">Пока нет записей</p></div>
+  </section>
+
+  <section class="card">
+    <details id="setDet">
+      <summary>Период и конверты ▾</summary>
+      <div class="form" style="margin-top:14px">
+        <p class="hint">Когда приходит зарплата или аванс: поставь новые даты, распредели сумму по конвертам и сохрани. Прошлые записи останутся в истории.</p>
+        <div class="two" style="grid-template-columns:1fr 1fr">
+          <label class="hint">Начало<input type="date" id="pStart"></label>
+          <label class="hint">До (включительно)<input type="date" id="pEnd"></label>
+        </div>
+        <div id="eRows" class="form" style="gap:6px"></div>
+        <button type="button" class="btn ghost" id="addRow">+ Конверт</button>
+        <p class="hint num" id="eSum"></p>
+        <button type="button" class="btn" id="saveSet">Сохранить</button>
+        <p class="toast" id="setToast" aria-live="polite"></p>
+      </div>
+    </details>
+  </section>
+  <section class="card">
+    <details id="bkDet">
+      <summary>Резервная копия ▾</summary>
+      <div class="form" style="margin-top:14px">
+        <p class="hint">Данные хранятся только в этом браузере на этом устройстве. Раз в неделю сохраняй копию: если очистишь историю браузера, из неё всё восстановится.</p>
+        <button type="button" class="btn ghost" id="bkCopy">Скопировать копию</button>
+        <button type="button" class="btn ghost" id="bkSave">Сохранить файл копии</button>
+        <label class="hint">Восстановить из файла<input type="file" id="bkFile" accept=".json,application/json,text/plain"></label>
+        <textarea id="bkText" rows="4" placeholder="…или вставь сюда текст копии" style="font:12px var(--mono);width:100%;box-sizing:border-box;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px"></textarea>
+        <button type="button" class="btn ghost" id="bkLoad">Восстановить из текста</button>
+        <p class="toast" id="bkToast" aria-live="polite"></p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+const fmt=n=>Math.round(n).toLocaleString('ru-RU')+' ₽';
+const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+const parseD=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const dm=s=>{const d=parseD(s);return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')};
+const $=id=>document.getElementById(id);
+const INCOME=['Зарплата','Аванс','Компенсация','Другое'];
+
+let db=null, state=null, txs=[], kind='expense', cat=null, armed=null, editing=null;
+
+$('date').value=today();
+
+function envs(){return (state&&state.envelopes)||[]}
+function inPeriod(t){return state&&t.date>=state.start&&t.date<=state.end}
+function balance(){let b=0;for(const t of txs){if(t.kind==='income')b+=t.amount;else if(t.kind==='expense')b-=t.amount;else if(t.kind==='adjust')b+=t.amount}return b}
+function spentBy(id){let s=0;for(const t of txs)if(t.kind==='expense'&&t.cat===id&&inPeriod(t))s+=t.amount;return s}
+function daysLeft(){if(!state)return 0;const a=parseD(today()),b=parseD(state.end);return Math.max(0,Math.round((b-a)/864e5)+1)}
+
+function renderCats(){
+  const box=$('cats');box.innerHTML='';
+  const list=kind==='income'?INCOME.map(n=>({id:n,name:n})):kind==='expense'?envs():[];
+  box.hidden=kind==='adjust';
+  if(!list.find(x=>x.id===cat))cat=list[0]?list[0].id:null;
+  for(const c of list){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===cat));b.onclick=()=>{cat=c.id;renderCats()};box.appendChild(b)}
+}
+function setKind(k){
+  kind=k;
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===k)));
+  $('addBtn').textContent=editing?'Сохранить изменения':k==='expense'?'Добавить трату':k==='income'?'Добавить доход':'Сверить баланс';
+  document.querySelector('.seg button[data-kind=adjust]').disabled=!!editing;
+  const h=$('kindHint');
+  if(k==='adjust'){h.hidden=false;h.textContent='Введи, сколько денег у тебя реально есть (карты + наличные). Разница запишется как корректировка.'}else h.hidden=true;
+  renderCats();
+}
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setKind(b.dataset.kind));
+function startEdit(t){
+  editing=t;
+  $('amt').value=t.amount;$('note').value=t.note||'';$('date').value=t.date;cat=t.cat;
+  setKind(t.kind);
+  $('editBanner').hidden=false;$('editBanner').textContent='Редактируешь запись от '+dm(t.date)+'. Измени сумму, категорию или дату и сохрани.';
+  $('cancelEdit').hidden=false;
+  $('addForm').scrollIntoView({behavior:'smooth',block:'start'});
+  $('amt').focus({preventScroll:true});
+}
+function stopEdit(){
+  editing=null;$('editBanner').hidden=true;$('cancelEdit').hidden=true;
+  $('amt').value='';$('note').value='';$('date').value=today();
+  setKind(kind);render();
+}
+$('cancelEdit').onclick=stopEdit;
+
+function render(){
+  const bal=balance();
+  $('balance').textContent=fmt(bal);
+  let reserved=0;
+  for(const e of envs()){if(e.reserve)continue;reserved+=Math.max(0,e.limit-spentBy(e.id))}
+  $('free').textContent=state?fmt(bal-reserved):'—';
+  const dl=daysLeft();
+  const food=envs().find(e=>/продукт/i.test(e.name));
+  $('perDay').textContent=food&&dl?fmt(Math.max(0,food.limit-spentBy(food.id))/dl):'—';
+  $('periodChip').textContent=state?dm(state.start)+' → '+dm(state.end)+' · '+dl+' дн.':'Период не задан';
+
+  // envelopes
+  const box=$('envs');box.innerHTML='';
+  if(!state||!envs().length){box.innerHTML='<p class="empty">Конвертов пока нет. Открой «Период и конверты» внизу и задай их.</p>'}
+  const overs=[];for(const e of envs()){if(e.reserve)continue;const o=spentBy(e.id)-e.limit;if(o>0)overs.push({name:e.name,o})}
+  const overSum=overs.reduce((a,x)=>a+x.o,0);
+  for(const e of envs()){
+    const own=spentBy(e.id),cover=e.reserve?overSum:0,sp=own+cover,rest=e.limit-sp,pct=e.limit?Math.min(100,sp/e.limit*100):(sp?100:0);
+    const st=rest<0?'over':(e.limit&&!e.reserve&&pct>=85?'warn':'');
+    const d=document.createElement('div');d.className='e '+st;
+    const pill=e.reserve?'<span class="pill res">резерв</span>':st==='over'?'<span class="pill over">перерасход · из резерва</span>':st==='warn'?'<span class="pill warn">почти всё</span>':'';
+    d.innerHTML='<div class="head"><span class="name"></span><span class="rest num"></span></div><div class="bar"><i></i></div><div class="sub num"><span></span><span></span></div>';
+    d.querySelector('.name').textContent=e.name;d.querySelector('.name').insertAdjacentHTML('beforeend',pill);
+    d.querySelector('.rest').textContent=fmt(rest);
+    d.querySelector('.bar i').style.width=pct+'%';
+    const s=d.querySelectorAll('.sub span');s[0].textContent='потрачено '+fmt(own);s[1].textContent='из '+fmt(e.limit);
+    if(e.reserve&&cover>0){const n=document.createElement('div');n.className='sub';n.style.color='var(--bad)';n.textContent='−'+fmt(cover)+' на перерасход: '+overs.map(x=>x.name+' '+fmt(x.o)).join(', ');d.appendChild(n)}
+    box.appendChild(d);
+  }
+
+  // stats
+  let spent=0,inc=0;for(const t of txs){if(!inPeriod(t))continue;if(t.kind==='expense')spent+=t.amount;if(t.kind==='income')inc+=t.amount}
+  $('sSpent').textContent=fmt(spent);$('sIn').textContent=fmt(inc);
+  let passed=1;if(state){passed=Math.max(1,Math.round((Math.min(parseD(today()),parseD(state.end))-parseD(state.start))/864e5)+1)}
+  $('sAvg').textContent=fmt(spent/passed);
+  const days=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(iso(d))}
+  const sums=days.map(d=>txs.filter(t=>t.kind==='expense'&&t.date===d).reduce((a,t)=>a+t.amount,0));
+  const mx=Math.max(...sums,1);
+  $('days').innerHTML='';
+  days.forEach((d,i)=>{const c=document.createElement('div');const b=document.createElement('b');if(!sums[i])b.className='zero';b.style.height=(sums[i]/mx*85)+'%';b.title=dm(d)+': '+fmt(sums[i]);const s=document.createElement('span');s.textContent=parseD(d).getDate();c.append(b,s);$('days').appendChild(c)});
+  $('daysMax').textContent=sums.some(Boolean)?'Самый затратный день: '+fmt(mx):'За 14 дней трат нет';
+
+  // history
+  const h=$('hist');h.innerHTML='';
+  if(!txs.length){h.innerHTML='<p class="empty">Пока нет записей</p>'}
+  let last='';
+  for(const t of txs.slice(0,80)){
+    if(t.date!==last){last=t.date;const dd=document.createElement('div');dd.className='day';dd.textContent=parseD(t.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'short'});h.appendChild(dd)}
+    const r=document.createElement('div');r.className='tx';
+    const e=envs().find(x=>x.id===t.cat);
+    const label=t.kind==='expense'?(e?e.name:'Трата'):t.kind==='income'?(t.cat||'Доход'):'Сверка баланса';
+    const sign=t.kind==='expense'?'−':t.amount>=0?'+':'−';
+    r.innerHTML='<div class="t"><div></div><small></small></div><div class="a num"></div><button class="edit" type="button" aria-label="Изменить">✎</button><button class="del" type="button" aria-label="Удалить">✕</button>';
+    r.querySelector('.t div').textContent=label;r.querySelector('small').textContent=t.note||'';
+    const a=r.querySelector('.a');a.textContent=sign+fmt(Math.abs(t.amount));if(t.kind!=='expense'&&t.amount>=0)a.classList.add('in');
+    const ed=r.querySelector('.edit');
+    if(t.kind==='adjust')ed.style.visibility='hidden';else ed.onclick=()=>startEdit(t);
+    const del=r.querySelector('.del');
+    if(armed===t.id){del.textContent='Удалить?';del.classList.add('armed')}
+    del.onclick=async()=>{if(armed!==t.id){armed=t.id;render();setTimeout(()=>{if(armed===t.id){armed=null;render()}},3000);return}armed=null;if(db)await db.doc('tx/'+t.id).delete().catch(()=>{})};
+    h.appendChild(r);
+  }
+  if(document.activeElement===document.body||!$('setDet').open)fillSettings();
+  if(kind==='expense')renderCats();
+}
+
+// settings editor
+let editRows=null;
+function fillSettings(force){
+  if(editRows&&!force)return;
+  $('pStart').value=state?state.start:today();
+  $('pEnd').value=state?state.end:today();
+  editRows=envs().map(e=>({...e}));
+  drawRows();
+}
+function drawRows(){
+  const box=$('eRows');box.innerHTML='';
+  editRows.forEach((e,i)=>{
+    const r=document.createElement('div');r.className='erow';
+    const n=document.createElement('input');n.type='text';n.value=e.name;n.id='en'+i;n.setAttribute('aria-label','Название');n.oninput=()=>{e.name=n.value};
+    const l=document.createElement('input');l.type='number';l.inputMode='numeric';l.value=e.limit;l.id='el'+i;l.setAttribute('aria-label','Лимит');l.oninput=()=>{e.limit=Number(l.value)||0;sumRows()};
+    const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Убрать конверт');x.onclick=()=>{editRows.splice(i,1);drawRows()};
+    r.append(n,l,x);box.appendChild(r);
+  });
+  sumRows();
+}
+function sumRows(){const s=editRows.reduce((a,e)=>a+(e.limit||0),0);$('eSum').textContent='Распределено: '+fmt(s)+' · на руках: '+fmt(balance())}
+$('setDet').addEventListener('toggle',()=>{if($('setDet').open)fillSettings(true)});
+$('addRow').onclick=()=>{editRows.push({id:'c'+Date.now().toString(36),name:'',limit:0});drawRows()};
+$('saveSet').onclick=async()=>{
+  if(!db){$('setToast').textContent='Сохранение недоступно';return}
+  const s=$('pStart').value,e=$('pEnd').value;
+  if(!s||!e||e<s){$('setToast').textContent='Проверь даты: конец периода раньше начала';return}
+  const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name)}));
+  try{await db.doc('budget/state').set({start:s,end:e,envelopes:list});$('setToast').textContent='Сохранено';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
+};
+
+$('addForm').onsubmit=async ev=>{
+  ev.preventDefault();
+  const v=Number(String($('amt').value).replace(/\s/g,'').replace(',','.'));
+  if(!(v>0)&&kind!=='adjust'){$('toast').textContent='Введи сумму больше нуля';return}
+  if(kind==='adjust'&&!(v>=0)){$('toast').textContent='Введи сумму, которая сейчас на руках';return}
+  if(!db){$('toast').textContent='Сохранение недоступно в этом окне';return}
+  let doc={date:$('date').value||today(),kind,amount:Math.round(v*100)/100,note:$('note').value.trim(),ts:Date.now()};
+  if(kind==='expense'){if(!cat){$('toast').textContent='Сначала задай конверты';return}doc.cat=cat}
+  if(kind==='income')doc.cat=cat;
+  if(kind==='adjust'){const diff=Math.round((v-balance())*100)/100;if(!diff){$('toast').textContent='Сходится, корректировка не нужна';return}doc.amount=diff;doc.note=doc.note||('Было '+fmt(balance())+', стало '+fmt(v))}
+  try{if(editing){doc.ts=editing.ts||doc.ts;await db.doc('tx/'+editing.id).set(doc);stopEdit();$('toast').textContent='Запись изменена';setTimeout(()=>$('toast').textContent='',2500);return}
+  await db.collection('tx').add(doc);$('amt').value='';$('note').value='';$('toast').textContent=kind==='expense'?'Трата записана':kind==='income'?'Доход записан':'Баланс сверен';setTimeout(()=>$('toast').textContent='',2500)}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
+};
+
+setKind('expense');render();
+
+(function(){
+  const KEY='budget-tracker-v1', SEED={"state":null,"tx":[]};
+  let mem=null, ok=true;
+  function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){ok=false}return JSON.parse(JSON.stringify(SEED))}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(mem))}catch(e){ok=false;$('offline').hidden=false}}
+  mem=load();
+  try{localStorage.setItem(KEY+'-t','1');localStorage.removeItem(KEY+'-t')}catch(e){ok=false}
+  if(!ok)$('offline').hidden=false;
+  if(!localStorage.getItem||!(function(){try{return localStorage.getItem(KEY)}catch(e){return null}})())save();
+  const subs=[];
+  function emit(){state=mem.state;txs=mem.tx.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0));render()}
+  const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  db={
+    doc(path){const [c,id]=path.split('/');return{
+      async set(d){if(c==='budget'){mem.state=d}else{const i=mem.tx.findIndex(t=>t.id===id);const row={...d,id};if(i<0)mem.tx.push(row);else mem.tx[i]=row}save();emit()},
+      async delete(){if(c==='tx'){mem.tx=mem.tx.filter(t=>t.id!==id)}save();emit()}}},
+    collection(){return{async add(d){mem.tx.push({...d,id:uid()});save();emit()}}}
+  };
+  emit();
+  const dump=()=>JSON.stringify(mem);
+  $('bkCopy').onclick=async()=>{const t=dump();$('bkText').value=t;try{await navigator.clipboard.writeText(t);$('bkToast').textContent='Копия скопирована. Вставь её в Заметки или себе в сообщения.'}catch(e){$('bkText').select();$('bkToast').textContent='Текст копии в поле ниже, выдели и скопируй его.'}};
+  $('bkSave').onclick=()=>{const b=new Blob([dump()],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='budget-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();$('bkToast').textContent='Файл копии сохранён'};
+  function restore(txt){try{const d=JSON.parse(txt);if(!d||!d.state||!Array.isArray(d.tx))throw 0;mem=d;save();emit();editRows=null;$('bkToast').textContent='Данные восстановлены'}catch(e){$('bkToast').textContent='Не получилось прочитать копию. Проверь, что вставлен весь текст.'}}
+  $('bkLoad').onclick=()=>restore($('bkText').value);
+  $('bkFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>restore(r.result);r.readAsText(f)};
+})();
+})();
+</script>
+
+</body></html>
