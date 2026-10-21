@@ -36,7 +36,17 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .hero{background:var(--ink);color:var(--bg);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
 .hero .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.7}
 .hero .big{font-family:var(--display);font-size:38px;font-weight:700;line-height:1.05}
-.hero .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hero .row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.np-banner{background:var(--accent-soft);color:var(--ink);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.np-banner p{margin:0;font-size:14px}
+.np-list{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.np-list div{display:flex;justify-content:space-between;gap:8px}
+.np-list .tot{font-weight:700;border-top:1px solid var(--line);padding-top:6px;margin-top:2px}
+.np-res{background:var(--accent-soft);color:var(--accent);border-radius:10px;padding:10px 12px;font-weight:600;font-size:14px}
+.np-res.bad{background:var(--bad-soft);color:var(--bad)}
+.chk{display:flex;gap:8px;align-items:center;color:var(--ink)}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.erow .fx{font-size:11px;color:var(--muted)}
 .hero .row div{min-width:0}
 .hero .mid{font-family:var(--display);font-size:19px;font-weight:500}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -116,7 +126,13 @@ details summary::-webkit-details-marker{display:none}
     <div class="row">
       <div><div class="lbl">Свободно</div><div class="mid num" id="free">—</div></div>
       <div><div class="lbl">Продукты в день</div><div class="mid num" id="perDay">—</div></div>
+      <div><div class="lbl">Сбережения</div><div class="mid num" id="saved">—</div></div>
     </div>
+  </section>
+
+  <section class="np-banner" id="npBanner" hidden>
+    <p id="npBannerText"></p>
+    <button type="button" class="btn" id="npOpen">Разложить по новым конвертам</button>
   </section>
 
   <section class="card" aria-label="Новая запись">
@@ -163,6 +179,29 @@ details summary::-webkit-details-marker{display:none}
   </section>
 
   <section class="card">
+    <details id="npDet">
+      <summary>Новый период: зарплата или аванс ▾</summary>
+      <div class="form" style="margin-top:14px">
+        <p class="hint">Остатки текущих конвертов уйдут в сбережения, а деньги на руках разложатся по новым конвертам. Всё, что не распределено, станет резервом.</p>
+        <h2 style="margin:4px 0 0">Остатки текущего периода</h2>
+        <div class="np-list num" id="npLeft"></div>
+        <label class="hint">Отложить в сбережения<input type="number" inputmode="numeric" id="npSave"></label>
+        <h2 style="margin:8px 0 0">Новый период</h2>
+        <div class="two">
+          <label class="hint">Начало<input type="date" id="npStart"></label>
+          <label class="hint">До (включительно)<input type="date" id="npEnd"></label>
+        </div>
+        <label class="hint chk"><input type="checkbox" id="npFixed"> Обязательные платежи (автокредит, кредитка, ЖКХ)</label>
+        <div id="npRows" class="form" style="gap:6px"></div>
+        <button type="button" class="btn ghost" id="npAdd">+ Конверт</button>
+        <div class="np-res num" id="npRes"></div>
+        <button type="button" class="btn" id="npGo">Начать новый период</button>
+        <p class="toast" id="npToast" aria-live="polite"></p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
     <details id="setDet">
       <summary>Период и конверты ▾</summary>
       <div class="form" style="margin-top:14px">
@@ -205,7 +244,8 @@ const dm=s=>{const d=parseD(s);return String(d.getDate()).padStart(2,'0')+'.'+St
 const $=id=>document.getElementById(id);
 const INCOME=['Зарплата','Аванс','Компенсация','Другое'];
 
-let db=null, state=null, txs=[], kind='expense', cat=null, armed=null, editing=null;
+let db=null, state=null, txs=[], kind='expense', cat=null, armed=null, editing=null, gotPay=false;
+const FIXED_DEFAULT=[{id:'loan',name:'Автокредит',limit:24000,fixed:true},{id:'cc',name:'Кредитка',limit:13700,fixed:true},{id:'zhkh',name:'ЖКХ',limit:8200,fixed:true}];
 
 $('date').value=today();
 
@@ -213,6 +253,9 @@ function envs(){return (state&&state.envelopes)||[]}
 function inPeriod(t){return state&&t.date>=state.start&&t.date<=state.end}
 function balance(){let b=0;for(const t of txs){if(t.kind==='income')b+=t.amount;else if(t.kind==='expense')b-=t.amount;else if(t.kind==='adjust')b+=t.amount}return b}
 function spentBy(id){let s=0;for(const t of txs)if(t.kind==='expense'&&t.cat===id&&inPeriod(t))s+=t.amount;return s}
+function savings(){let s=0;for(const t of txs)if(t.kind==='save')s+=t.amount;return s}
+function leftovers(){const out=[];let overSum=0;for(const e of envs()){if(e.reserve)continue;const o=spentBy(e.id)-e.limit;if(o>0)overSum+=o}
+  for(const e of envs()){const r=e.reserve?e.limit-spentBy(e.id)-overSum:e.limit-spentBy(e.id);if(r>0)out.push({name:e.name,r})}return out}
 function daysLeft(){if(!state)return 0;const a=parseD(today()),b=parseD(state.end);return Math.max(0,Math.round((b-a)/864e5)+1)}
 
 function renderCats(){
@@ -253,7 +296,12 @@ function render(){
   $('balance').textContent=fmt(bal);
   let reserved=0;
   for(const e of envs()){if(e.reserve)continue;reserved+=Math.max(0,e.limit-spentBy(e.id))}
-  $('free').textContent=state?fmt(bal-reserved):'—';
+  const sv=savings();
+  $('saved').textContent=fmt(sv);
+  $('free').textContent=state?fmt(bal-sv-reserved):'—';
+  const over=state&&today()>state.end;
+  $('npBanner').hidden=!(over||gotPay)||$('npDet').open;
+  $('npBannerText').textContent=over?'Период '+dm(state.start)+'–'+dm(state.end)+' закончился. Отложи остатки в сбережения и разложи деньги на следующий период.':'Пришли деньги. Отложи остатки прошлого периода в сбережения и разложи новую сумму по конвертам.';
   const dl=daysLeft();
   const food=envs().find(e=>/продукт/i.test(e.name));
   $('perDay').textContent=food&&dl?fmt(Math.max(0,food.limit-spentBy(food.id))/dl):'—';
@@ -298,19 +346,20 @@ function render(){
     if(t.date!==last){last=t.date;const dd=document.createElement('div');dd.className='day';dd.textContent=parseD(t.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'short'});h.appendChild(dd)}
     const r=document.createElement('div');r.className='tx';
     const e=envs().find(x=>x.id===t.cat);
-    const label=t.kind==='expense'?(e?e.name:'Трата'):t.kind==='income'?(t.cat||'Доход'):'Сверка баланса';
-    const sign=t.kind==='expense'?'−':t.amount>=0?'+':'−';
+    const label=t.kind==='expense'?(e?e.name:'Трата'):t.kind==='income'?(t.cat||'Доход'):t.kind==='save'?(t.amount>=0?'В сбережения':'Из сбережений'):'Сверка баланса';
+    const sign=t.kind==='expense'?'−':t.kind==='save'?(t.amount>=0?'→ ':'← '):t.amount>=0?'+':'−';
     r.innerHTML='<div class="t"><div></div><small></small></div><div class="a num"></div><button class="edit" type="button" aria-label="Изменить">✎</button><button class="del" type="button" aria-label="Удалить">✕</button>';
     r.querySelector('.t div').textContent=label;r.querySelector('small').textContent=t.note||'';
-    const a=r.querySelector('.a');a.textContent=sign+fmt(Math.abs(t.amount));if(t.kind!=='expense'&&t.amount>=0)a.classList.add('in');
+    const a=r.querySelector('.a');a.textContent=sign+fmt(Math.abs(t.amount));if((t.kind==='income'||t.kind==='adjust')&&t.amount>=0)a.classList.add('in');
     const ed=r.querySelector('.edit');
-    if(t.kind==='adjust')ed.style.visibility='hidden';else ed.onclick=()=>startEdit(t);
+    if(t.kind==='adjust'||t.kind==='save')ed.style.visibility='hidden';else ed.onclick=()=>startEdit(t);
     const del=r.querySelector('.del');
     if(armed===t.id){del.textContent='Удалить?';del.classList.add('armed')}
     del.onclick=async()=>{if(armed!==t.id){armed=t.id;render();setTimeout(()=>{if(armed===t.id){armed=null;render()}},3000);return}armed=null;if(db)await db.doc('tx/'+t.id).delete().catch(()=>{})};
     h.appendChild(r);
   }
   if(document.activeElement===document.body||!$('setDet').open)fillSettings();
+  if($('npDet').open)npCalc();
   if(kind==='expense')renderCats();
 }
 
@@ -341,8 +390,72 @@ $('saveSet').onclick=async()=>{
   if(!db){$('setToast').textContent='Сохранение недоступно';return}
   const s=$('pStart').value,e=$('pEnd').value;
   if(!s||!e||e<s){$('setToast').textContent='Проверь даты: конец периода раньше начала';return}
-  const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name)}));
-  try{await db.doc('budget/state').set({start:s,end:e,envelopes:list});$('setToast').textContent='Сохранено';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
+  const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name),...(r.fixed?{fixed:true}:{})}));
+  try{await db.doc('budget/state').set({...(state||{}),start:s,end:e,envelopes:list});$('setToast').textContent='Сохранено';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
+};
+
+// new period
+let npRows=[];
+function lastDay(y,m){return new Date(y,m+1,0).getDate()}
+function defEnd(start){const d=parseD(start),y=d.getFullYear(),m=d.getMonth(),day=d.getDate();
+  if(day>=15&&day<30)return iso(new Date(y,m,Math.min(29,lastDay(y,m))));
+  if(day>=30)return iso(new Date(y,m+1,14));return iso(new Date(y,m,14))}
+function fixedTpl(){return ((state&&state.fixed)||FIXED_DEFAULT).map(e=>({...e,fixed:true}))}
+function npOpen(){
+  const st=today();$('npStart').value=st;$('npEnd').value=defEnd(st);
+  const day=parseD(st).getDate();const sal=day>=12&&day<=20;
+  $('npFixed').checked=sal;
+  const regular=envs().filter(e=>!e.reserve&&!e.fixed).map(e=>({id:e.id,name:e.name,limit:e.limit}));
+  npRows=(sal?fixedTpl():[]).concat(regular);
+  const lo=leftovers().reduce((a,x)=>a+x.r,0);
+  $('npSave').value=Math.max(0,Math.round(Math.min(lo,balance()-savings())));
+  const L=$('npLeft');L.innerHTML='';
+  const lst=leftovers();
+  if(!lst.length)L.innerHTML='<div><span>Остатков нет</span><span></span></div>';
+  for(const x of lst){const d=document.createElement('div');d.innerHTML='<span></span><span></span>';d.children[0].textContent=x.name;d.children[1].textContent=fmt(x.r);L.appendChild(d)}
+  if(lst.length){const d=document.createElement('div');d.className='tot';d.innerHTML='<span>Итого остатков</span><span></span>';d.children[1].textContent=fmt(lo);L.appendChild(d)}
+  npDraw();
+}
+$('npFixed').onchange=()=>{if($('npFixed').checked){const have=new Set(npRows.map(r=>r.id));npRows=fixedTpl().filter(r=>!have.has(r.id)).concat(npRows)}else npRows=npRows.filter(r=>!r.fixed);npDraw()};
+function npDraw(){
+  const box=$('npRows');box.innerHTML='';
+  npRows.forEach((e,i)=>{
+    const r=document.createElement('div');r.className='erow';
+    const n=document.createElement('input');n.type='text';n.value=e.name;n.id='nn'+i;n.setAttribute('aria-label','Название');n.oninput=()=>{e.name=n.value};
+    const l=document.createElement('input');l.type='number';l.inputMode='numeric';l.value=e.limit;l.id='nl'+i;l.setAttribute('aria-label','Лимит');l.oninput=()=>{e.limit=Number(l.value)||0;npCalc()};
+    const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Убрать конверт');x.onclick=()=>{npRows.splice(i,1);npDraw()};
+    r.append(n,l,x);box.appendChild(r);
+  });
+  npCalc();
+}
+function npCalc(){
+  const save=Math.max(0,Number($('npSave').value)||0);
+  const avail=balance()-savings()-save;
+  const used=npRows.reduce((a,e)=>a+(e.limit||0),0);
+  const res=Math.round(avail-used);
+  const el=$('npRes');el.classList.toggle('bad',res<0);
+  el.textContent=res<0?'Не хватает '+fmt(-res)+'. Уменьши лимиты или сумму в сбережения.':'Резерв (всё нераспределённое): '+fmt(res)+' · на руках после сбережений: '+fmt(avail);
+  return res;
+}
+$('npSave').oninput=npCalc;
+$('npAdd').onclick=()=>{npRows.push({id:'c'+Date.now().toString(36),name:'',limit:0});npDraw()};
+$('npDet').addEventListener('toggle',()=>{if($('npDet').open){npOpen();$('npBanner').hidden=true}});
+$('npOpen').onclick=()=>{$('npDet').open=true;$('npDet').scrollIntoView({behavior:'smooth',block:'start'})};
+$('npGo').onclick=async()=>{
+  if(!db){$('npToast').textContent='Сохранение недоступно';return}
+  const s=$('npStart').value,e=$('npEnd').value;
+  if(!s||!e||e<s){$('npToast').textContent='Проверь даты: конец периода раньше начала';return}
+  const res=npCalc();if(res<0){$('npToast').textContent='Не хватает денег на такие лимиты';return}
+  const save=Math.max(0,Math.round(Number($('npSave').value)||0));
+  const rows=npRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:false,...(r.fixed?{fixed:true}:{})}));
+  const fixed=rows.filter(r=>r.fixed);
+  try{
+    if(save>0)await db.collection('tx').add({date:s,kind:'save',amount:save,note:state?'Остатки периода '+dm(state.start)+'–'+dm(state.end):'Остатки периода',ts:Date.now()});
+    await db.doc('budget/state').set({start:s,end:e,envelopes:rows.concat([{id:'reserve',name:'Резерв',limit:res,reserve:true}]),fixed:fixed.length?fixed:((state&&state.fixed)||FIXED_DEFAULT)});
+    gotPay=false;$('npDet').open=false;$('npToast').textContent='';
+    $('toast').textContent='Новый период начат'+(save?', в сбережения отложено '+fmt(save):'');setTimeout(()=>$('toast').textContent='',3500);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(err){$('npToast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
 $('addForm').onsubmit=async ev=>{
@@ -356,7 +469,7 @@ $('addForm').onsubmit=async ev=>{
   if(kind==='income')doc.cat=cat;
   if(kind==='adjust'){const diff=Math.round((v-balance())*100)/100;if(!diff){$('toast').textContent='Сходится, корректировка не нужна';return}doc.amount=diff;doc.note=doc.note||('Было '+fmt(balance())+', стало '+fmt(v))}
   try{if(editing){doc.ts=editing.ts||doc.ts;await db.doc('tx/'+editing.id).set(doc);stopEdit();$('toast').textContent='Запись изменена';setTimeout(()=>$('toast').textContent='',2500);return}
-  await db.collection('tx').add(doc);$('amt').value='';$('note').value='';$('toast').textContent=kind==='expense'?'Трата записана':kind==='income'?'Доход записан':'Баланс сверен';setTimeout(()=>$('toast').textContent='',2500)}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
+  await db.collection('tx').add(doc);if(kind==='income'&&(doc.cat==='Зарплата'||doc.cat==='Аванс')){gotPay=true;render()}$('amt').value='';$('note').value='';$('toast').textContent=kind==='expense'?'Трата записана':kind==='income'?'Доход записан':'Баланс сверен';setTimeout(()=>$('toast').textContent='',2500)}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
 setKind('expense');render();
