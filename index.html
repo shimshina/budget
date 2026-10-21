@@ -124,7 +124,7 @@ details summary::-webkit-details-marker{display:none}
       <div class="big num" id="balance">—</div>
     </div>
     <div class="row">
-      <div><div class="lbl">Свободно</div><div class="mid num" id="free">—</div></div>
+      <div><div class="lbl">Свободно (резерв)</div><div class="mid num" id="free">—</div></div>
       <div><div class="lbl">Продукты в день</div><div class="mid num" id="perDay">—</div></div>
       <div><div class="lbl">Сбережения</div><div class="mid num" id="saved">—</div></div>
     </div>
@@ -313,7 +313,7 @@ function render(){
   const overs=[];for(const e of envs()){if(e.reserve)continue;const o=spentBy(e.id)-e.limit;if(o>0)overs.push({name:e.name,o})}
   const overSum=overs.reduce((a,x)=>a+x.o,0);
   for(const e of envs()){
-    const own=spentBy(e.id),cover=e.reserve?overSum:0,sp=own+cover,rest=e.limit-sp,pct=e.limit?Math.min(100,sp/e.limit*100):(sp?100:0);
+    const own=spentBy(e.id),cover=e.reserve?overSum:0,plan=e.limit-own-cover,rest=e.reserve?Math.round(bal-sv-reserved):plan,sp=e.limit-rest,pct=e.limit?Math.min(100,sp/e.limit*100):(sp?100:0);
     const st=rest<0?'over':(e.limit&&!e.reserve&&pct>=85?'warn':'');
     const d=document.createElement('div');d.className='e '+st;
     const pill=e.reserve?'<span class="pill res">резерв</span>':st==='over'?'<span class="pill over">перерасход · из резерва</span>':st==='warn'?'<span class="pill warn">почти всё</span>':'';
@@ -323,6 +323,7 @@ function render(){
     d.querySelector('.bar i').style.width=pct+'%';
     const s=d.querySelectorAll('.sub span');s[0].textContent='потрачено '+fmt(own);s[1].textContent='из '+fmt(e.limit);
     if(e.reserve&&cover>0){const n=document.createElement('div');n.className='sub';n.style.color='var(--bad)';n.textContent='−'+fmt(cover)+' на перерасход: '+overs.map(x=>x.name+' '+fmt(x.o)).join(', ');d.appendChild(n)}
+    if(e.reserve&&Math.abs(rest-plan)>=1){const n=document.createElement('div');n.className='sub';n.textContent=(rest>plan?'+':'−')+fmt(Math.abs(rest-plan))+(rest>plan?' нераспределённых денег (сверка или доход без конверта)':' — лимиты конвертов больше, чем денег на руках');d.appendChild(n)}
     box.appendChild(d);
   }
 
