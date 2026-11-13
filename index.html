@@ -50,7 +50,7 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .hero .row div{min-width:0}
 .hero .mid{font-family:var(--display);font-size:19px;font-weight:500}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg);border-radius:10px;padding:3px;gap:3px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg);border-radius:10px;padding:3px;gap:3px}
 .seg button{border:0;background:transparent;padding:9px 4px;border-radius:8px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .form{display:flex;flex-direction:column;gap:12px}
@@ -81,6 +81,13 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
 .e.warn .bar i{background:var(--warn)} .e.warn .rest{color:var(--warn)}
 .e.over .bar i{background:var(--bad)} .e.over .rest{color:var(--bad)}
 .pill{font-size:11px;padding:2px 7px;border-radius:999px;margin-left:6px;font-weight:600;vertical-align:2px}
+.pill.paid{background:var(--accent-soft);color:var(--accent)} .pill.due{background:var(--surface);color:var(--warn)}
+.mustbox{background:var(--warn-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:14px}
+.mustbox .mh{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--warn)}
+.mustbox .e .bar{background:var(--surface)}
+.grp{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:4px 0 -4px}
+.erow .mk{border:1px solid var(--line);border-radius:8px;height:36px;font-weight:700;color:var(--muted);font-size:15px}
+.erow .mk[aria-pressed="true"]{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
 .pill.over{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.res{background:var(--accent-soft);color:var(--accent)}
 .days{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;height:110px;margin-top:6px}
 .days div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px;min-width:0}
@@ -104,7 +111,7 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
 .del.armed{color:var(--bad);font-weight:600}
 details summary{cursor:pointer;font-weight:600;list-style:none}
 details summary::-webkit-details-marker{display:none}
-.erow{display:grid;grid-template-columns:1fr 110px 34px;gap:6px;align-items:center}
+.erow{display:grid;grid-template-columns:minmax(0,1fr) 96px 36px 30px;gap:6px;align-items:center}
 .erow button{border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
 .empty{text-align:center;color:var(--muted);padding:12px 0}
 .offline{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px}
@@ -142,6 +149,7 @@ details summary::-webkit-details-marker{display:none}
         <button type="button" data-kind="expense" aria-pressed="true">Трата</button>
         <button type="button" data-kind="income" aria-pressed="false">Доход</button>
         <button type="button" data-kind="adjust" aria-pressed="false">Сверка</button>
+        <button type="button" data-kind="save" aria-pressed="false">Копилка</button>
       </div>
       <label class="amount"><input id="amt" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Сумма"><span>₽</span></label>
       <p class="hint" id="kindHint" hidden></p>
@@ -191,7 +199,7 @@ details summary::-webkit-details-marker{display:none}
           <label class="hint">Начало<input type="date" id="npStart"></label>
           <label class="hint">До (включительно)<input type="date" id="npEnd"></label>
         </div>
-        <label class="hint chk"><input type="checkbox" id="npFixed"> Обязательные платежи (автокредит, кредитка, ЖКХ)</label>
+        <label class="hint chk"><input type="checkbox" id="npFixed"> Обязательные платежи (автокредит, ЖКХ, кредитка)</label>
         <div id="npRows" class="form" style="gap:6px"></div>
         <button type="button" class="btn ghost" id="npAdd">+ Конверт</button>
         <div class="np-res num" id="npRes"></div>
@@ -245,7 +253,8 @@ const $=id=>document.getElementById(id);
 const INCOME=['Зарплата','Аванс','Компенсация','Другое'];
 
 let db=null, state=null, txs=[], kind='expense', cat=null, armed=null, editing=null, gotPay=false;
-const FIXED_DEFAULT=[{id:'loan',name:'Автокредит',limit:24000,fixed:true},{id:'cc',name:'Кредитка',limit:13700,fixed:true},{id:'zhkh',name:'ЖКХ',limit:8200,fixed:true}];
+const FIXED_DEFAULT=[{id:'loan',name:'Автокредит',limit:24000,fixed:true},{id:'zhkh',name:'ЖКХ',limit:8500,fixed:true},{id:'cc',name:'Кредитка',limit:6700,fixed:true}];
+const isMust=e=>!e.reserve&&(e.fixed||e.must);
 
 $('date').value=today();
 
@@ -260,7 +269,7 @@ function daysLeft(){if(!state)return 0;const a=parseD(today()),b=parseD(state.en
 
 function renderCats(){
   const box=$('cats');box.innerHTML='';
-  const list=kind==='income'?INCOME.map(n=>({id:n,name:n})):kind==='expense'?envs():[];
+  const list=kind==='income'?INCOME.map(n=>({id:n,name:n})):kind==='expense'?envs():kind==='save'?[{id:'in',name:'Отложить в копилку'},{id:'out',name:'Взять из копилки'}]:[];
   box.hidden=kind==='adjust';
   if(!list.find(x=>x.id===cat))cat=list[0]?list[0].id:null;
   for(const c of list){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===cat));b.onclick=()=>{cat=c.id;renderCats()};box.appendChild(b)}
@@ -268,10 +277,10 @@ function renderCats(){
 function setKind(k){
   kind=k;
   document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kind===k)));
-  $('addBtn').textContent=editing?'Сохранить изменения':k==='expense'?'Добавить трату':k==='income'?'Добавить доход':'Сверить баланс';
+  $('addBtn').textContent=editing?'Сохранить изменения':k==='expense'?'Добавить трату':k==='income'?'Добавить доход':k==='save'?'Перевести':'Сверить баланс';
   document.querySelector('.seg button[data-kind=adjust]').disabled=!!editing;
   const h=$('kindHint');
-  if(k==='adjust'){h.hidden=false;h.textContent='Введи, сколько денег у тебя реально есть (карты + наличные). Разница запишется как корректировка.'}else h.hidden=true;
+  if(k==='adjust'){h.hidden=false;h.textContent='Введи, сколько денег у тебя реально есть (карты + наличные + сбережения). Разница запишется как корректировка.'}else if(k==='save'){h.hidden=false;h.textContent='Перевод между картой и сбережениями. Общая сумма на руках не меняется, меняются «Сбережения» и «Свободно».'}else h.hidden=true;
   renderCats();
 }
 document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setKind(b.dataset.kind));
@@ -312,11 +321,12 @@ function render(){
   if(!state||!envs().length){box.innerHTML='<p class="empty">Конвертов пока нет. Открой «Период и конверты» внизу и задай их.</p>'}
   const overs=[];for(const e of envs()){if(e.reserve)continue;const o=spentBy(e.id)-e.limit;if(o>0)overs.push({name:e.name,o})}
   const overSum=overs.reduce((a,x)=>a+x.o,0);
-  for(const e of envs()){
+  function drawEnv(e,box){
     const own=spentBy(e.id),cover=e.reserve?overSum:0,plan=e.limit-own-cover,rest=e.reserve?Math.round(bal-sv-reserved):plan,sp=e.limit-rest,pct=e.limit?Math.min(100,sp/e.limit*100):(sp?100:0);
-    const st=rest<0?'over':(e.limit&&!e.reserve&&pct>=85?'warn':'');
+    const st=rest<0?'over':(isMust(e)?'':(e.limit&&!e.reserve&&pct>=85?'warn':''));
     const d=document.createElement('div');d.className='e '+st;
-    const pill=e.reserve?'<span class="pill res">резерв</span>':st==='over'?'<span class="pill over">перерасход · из резерва</span>':st==='warn'?'<span class="pill warn">почти всё</span>':'';
+    const paid=isMust(e)&&own>=e.limit&&e.limit>0;
+    const pill=isMust(e)?(st==='over'?'<span class="pill over">больше плана · из резерва</span>':paid?'<span class="pill paid">оплачено</span>':'<span class="pill due">к оплате</span>'):e.reserve?'<span class="pill res">резерв</span>':st==='over'?'<span class="pill over">перерасход · из резерва</span>':st==='warn'?'<span class="pill warn">почти всё</span>':'';
     d.innerHTML='<div class="head"><span class="name"></span><span class="rest num"></span></div><div class="bar"><i></i></div><div class="sub num"><span></span><span></span></div>';
     d.querySelector('.name').textContent=e.name;d.querySelector('.name').insertAdjacentHTML('beforeend',pill);
     d.querySelector('.rest').textContent=fmt(rest);
@@ -326,6 +336,12 @@ function render(){
     if(e.reserve&&Math.abs(rest-plan)>=1){const n=document.createElement('div');n.className='sub';n.textContent=(rest>plan?'+':'−')+fmt(Math.abs(rest-plan))+(rest>plan?' нераспределённых денег (сверка или доход без конверта)':' — лимиты конвертов больше, чем денег на руках');d.appendChild(n)}
     box.appendChild(d);
   }
+  const mustL=envs().filter(isMust),restL=envs().filter(e=>!isMust(e)&&!e.reserve),resL=envs().filter(e=>e.reserve);
+  if(mustL.length){const mb=document.createElement('div');mb.className='mustbox';const tot=mustL.reduce((a,e)=>a+e.limit,0),pd=mustL.reduce((a,e)=>a+Math.min(e.limit,spentBy(e.id)),0);
+    const h=document.createElement('div');h.className='mh num';h.innerHTML='<span>Обязательные платежи</span><span></span>';h.children[1].textContent='оплачено '+fmt(pd)+' из '+fmt(tot);mb.appendChild(h);
+    for(const e of mustL)drawEnv(e,mb);box.appendChild(mb);
+    if(restL.length){const g=document.createElement('div');g.className='grp';g.textContent='Остальные конверты';box.appendChild(g)}}
+  for(const e of restL)drawEnv(e,box);for(const e of resL)drawEnv(e,box);
 
   // stats
   let spent=0,inc=0;for(const t of txs){if(!inPeriod(t))continue;if(t.kind==='expense')spent+=t.amount;if(t.kind==='income')inc+=t.amount}
@@ -365,6 +381,7 @@ function render(){
 }
 
 // settings editor
+function mkBtn(e){const m=document.createElement('button');m.type='button';m.className='mk';m.textContent='!';m.title='Обязательный платёж';m.setAttribute('aria-label','Обязательный платёж');const upd=()=>m.setAttribute('aria-pressed',String(!!(e.fixed||e.must)));upd();m.onclick=()=>{if(e.fixed||e.must){e.fixed=false;e.must=false}else e.must=true;upd()};if(/резерв/i.test(e.name||''))m.style.visibility='hidden';return m}
 let editRows=null;
 function fillSettings(force){
   if(editRows&&!force)return;
@@ -380,7 +397,7 @@ function drawRows(){
     const n=document.createElement('input');n.type='text';n.value=e.name;n.id='en'+i;n.setAttribute('aria-label','Название');n.oninput=()=>{e.name=n.value};
     const l=document.createElement('input');l.type='number';l.inputMode='numeric';l.value=e.limit;l.id='el'+i;l.setAttribute('aria-label','Лимит');l.oninput=()=>{e.limit=Number(l.value)||0;sumRows()};
     const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Убрать конверт');x.onclick=()=>{editRows.splice(i,1);drawRows()};
-    r.append(n,l,x);box.appendChild(r);
+    const m=mkBtn(e);r.append(n,l,m,x);box.appendChild(r);
   });
   sumRows();
 }
@@ -391,7 +408,7 @@ $('saveSet').onclick=async()=>{
   if(!db){$('setToast').textContent='Сохранение недоступно';return}
   const s=$('pStart').value,e=$('pEnd').value;
   if(!s||!e||e<s){$('setToast').textContent='Проверь даты: конец периода раньше начала';return}
-  const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name),...(r.fixed?{fixed:true}:{})}));
+  const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name),...(r.fixed?{fixed:true}:{}),...(r.must?{must:true}:{})}));
   try{await db.doc('budget/state').set({...(state||{}),start:s,end:e,envelopes:list});$('setToast').textContent='Сохранено';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
@@ -406,7 +423,7 @@ function npOpen(){
   const st=today();$('npStart').value=st;$('npEnd').value=defEnd(st);
   const day=parseD(st).getDate();const sal=day>=12&&day<=20;
   $('npFixed').checked=sal;
-  const regular=envs().filter(e=>!e.reserve&&!e.fixed).map(e=>({id:e.id,name:e.name,limit:e.limit}));
+  const regular=envs().filter(e=>!e.reserve&&!e.fixed).map(e=>({id:e.id,name:e.name,limit:e.limit,...(e.must?{must:true}:{})}));
   npRows=(sal?fixedTpl():[]).concat(regular);
   const lo=leftovers().reduce((a,x)=>a+x.r,0);
   $('npSave').value=Math.max(0,Math.round(Math.min(lo,balance()-savings())));
@@ -425,7 +442,7 @@ function npDraw(){
     const n=document.createElement('input');n.type='text';n.value=e.name;n.id='nn'+i;n.setAttribute('aria-label','Название');n.oninput=()=>{e.name=n.value};
     const l=document.createElement('input');l.type='number';l.inputMode='numeric';l.value=e.limit;l.id='nl'+i;l.setAttribute('aria-label','Лимит');l.oninput=()=>{e.limit=Number(l.value)||0;npCalc()};
     const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Убрать конверт');x.onclick=()=>{npRows.splice(i,1);npDraw()};
-    r.append(n,l,x);box.appendChild(r);
+    const m=mkBtn(e);r.append(n,l,m,x);box.appendChild(r);
   });
   npCalc();
 }
@@ -448,7 +465,7 @@ $('npGo').onclick=async()=>{
   if(!s||!e||e<s){$('npToast').textContent='Проверь даты: конец периода раньше начала';return}
   const res=npCalc();if(res<0){$('npToast').textContent='Не хватает денег на такие лимиты';return}
   const save=Math.max(0,Math.round(Number($('npSave').value)||0));
-  const rows=npRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:false,...(r.fixed?{fixed:true}:{})}));
+  const rows=npRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:false,...(r.fixed?{fixed:true}:{}),...(r.must?{must:true}:{})}));
   const fixed=rows.filter(r=>r.fixed);
   try{
     if(save>0)await db.collection('tx').add({date:s,kind:'save',amount:save,note:state?'Остатки периода '+dm(state.start)+'–'+dm(state.end):'Остатки периода',ts:Date.now()});
@@ -468,9 +485,10 @@ $('addForm').onsubmit=async ev=>{
   let doc={date:$('date').value||today(),kind,amount:Math.round(v*100)/100,note:$('note').value.trim(),ts:Date.now()};
   if(kind==='expense'){if(!cat){$('toast').textContent='Сначала задай конверты';return}doc.cat=cat}
   if(kind==='income')doc.cat=cat;
+  if(kind==='save'){if(cat==='out')doc.amount=-doc.amount;doc.note=doc.note||(cat==='out'?'Из сбережений':'В сбережения')}
   if(kind==='adjust'){const diff=Math.round((v-balance())*100)/100;if(!diff){$('toast').textContent='Сходится, корректировка не нужна';return}doc.amount=diff;doc.note=doc.note||('Было '+fmt(balance())+', стало '+fmt(v))}
   try{if(editing){doc.ts=editing.ts||doc.ts;await db.doc('tx/'+editing.id).set(doc);stopEdit();$('toast').textContent='Запись изменена';setTimeout(()=>$('toast').textContent='',2500);return}
-  await db.collection('tx').add(doc);if(kind==='income'&&(doc.cat==='Зарплата'||doc.cat==='Аванс')){gotPay=true;render()}$('amt').value='';$('note').value='';$('toast').textContent=kind==='expense'?'Трата записана':kind==='income'?'Доход записан':'Баланс сверен';setTimeout(()=>$('toast').textContent='',2500)}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
+  await db.collection('tx').add(doc);if(kind==='income'&&(doc.cat==='Зарплата'||doc.cat==='Аванс')){gotPay=true;render()}$('amt').value='';$('note').value='';$('toast').textContent=kind==='expense'?'Трата записана':kind==='income'?'Доход записан':kind==='save'?'Перевод записан':'Баланс сверен';setTimeout(()=>$('toast').textContent='',2500)}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
 setKind('expense');render();
