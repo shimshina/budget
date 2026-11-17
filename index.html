@@ -95,7 +95,7 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
 .mustbox .e .bar{background:var(--surface)}
 .grp{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:4px 0 -4px}
 .tab{display:flex;flex-direction:column;gap:18px}
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tabbar{transition:transform .22s ease;will-change:transform;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .tabbar button{border:0;background:transparent;font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .tabbar svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabbar button[aria-selected="true"]{color:var(--accent)}
@@ -238,7 +238,7 @@ input[type=text],input[type=date],input[type=number]{border:0;background:var(--b
 .ma .ck{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--good-soft);color:var(--good);vertical-align:-5px;margin-left:6px}
 .ma .ck svg{width:14px;height:14px}
 .grp{text-transform:none;letter-spacing:0;font-size:15px;font-weight:700;color:var(--ink);margin:6px 0 -2px}
-.tabbar{background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.tabbar{box-shadow:0 -6px 20px rgba(0,0,0,.05)}
 .tabbar button[aria-selected="true"]{color:var(--accent)}
 .kpis div{border-radius:14px}
 .chips button{border:0;background:var(--bg);font-weight:600}
@@ -284,8 +284,8 @@ input[type=text],input[type=date],input[type=number]{border:0;background:var(--b
 .crow.flash{animation:flash 1.4s ease}
 @keyframes flash{0%,60%{background:var(--accent-soft);box-shadow:0 0 0 8px var(--accent-soft);border-radius:8px}100%{background:transparent;box-shadow:0 0 0 8px transparent}}
 @media (prefers-reduced-motion:no-preference){
-  .tab.in-r{animation:slR .28s cubic-bezier(.2,.8,.2,1)} .tab.in-l{animation:slL .28s cubic-bezier(.2,.8,.2,1)}
-  @keyframes slR{from{opacity:0;transform:translateX(28px)}} @keyframes slL{from{opacity:0;transform:translateX(-28px)}}
+  .tab.in-r{animation:slR .2s ease-out} .tab.in-l{animation:slL .2s ease-out}
+  @keyframes slR{from{opacity:.4;transform:translate3d(18px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}} @keyframes slL{from{opacity:.4;transform:translate3d(-18px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
   .tiles.anim circle.p{animation:ringIn .9s cubic-bezier(.2,.8,.2,1) both}
   @keyframes ringIn{from{stroke-dashoffset:176}}
   .tiles.anim .tile{animation:pop .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*35ms)}
@@ -339,6 +339,9 @@ input[type=text],input[type=date],input[type=number]{border:0;background:var(--b
 .goal small{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:12.5px;margin-top:5px}
 .goals{display:flex;flex-direction:column;gap:8px}
 select{font:inherit;color:var(--ink);background:var(--bg);border:0;border-radius:12px;padding:10px 12px;width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;margin-top:4px}
+body.kb .tabbar{transform:translateY(130%);pointer-events:none}
+body.kb .snack{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.tab.in-r,.tab.in-l{will-change:transform,opacity}
 </style>
 
 <div class="wrap">
@@ -431,6 +434,7 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:0;border-radius
         <div id="eRows" class="form" style="gap:6px"></div>
         <button type="button" class="btn ghost" id="addRow">+ Конверт</button>
         <p class="hint num" id="eSum"></p>
+        <label class="hint chk"><input type="checkbox" id="setAuto"> Если на карте не хватает — добирать из копилки автоматически</label>
         <button type="button" class="btn" id="saveSet">Сохранить</button>
         <p class="toast" id="setToast" aria-live="polite"></p>
       </div>
@@ -623,8 +627,22 @@ function forecast(e){if(!state||e.reserve||isMust(e)||!(e.limit>0))return null;c
   if(own>=e.limit)return {risk:true,over:proj-e.limit,date:null,proj};
   if(proj>e.limit*1.05){const d=addD(state.start,Math.max(n,Math.floor(e.limit/pace))-1);return {risk:true,over:proj-e.limit,date:d<=state.end?d:state.end,proj}}
   return {risk:false,left:e.limit-proj,proj}}
-async function payEnv(id){const e=envs().find(x=>x.id===id);if(!e||!db)return;const left=e.limit-spentBy(id);if(!(left>0))return;try{await commit([{t:'set',id:uid(),doc:{date:today(),kind:'expense',cat:id,amount:left,note:'',ts:Date.now()}}],'Оплачено: '+e.name.replace(/\s*\([^)]*\)\s*$/,'')+' '+fmt(left))}catch(err){}}
+async function payEnv(id){const e=envs().find(x=>x.id===id);if(!e||!db)return;const left=e.limit-spentBy(id);if(!(left>0))return;
+  const nm=e.name.replace(/\s*\([^)]*\)\s*$/,''),d=drawOps(left,'Добор на платёж: '+nm);
+  try{await commit(d.concat([{t:'set',id:uid(),doc:{date:today(),kind:'expense',cat:id,amount:left,note:'',ts:Date.now()}}]),'Оплачено: '+nm+' '+fmt(left)+drawMsg(d))}catch(err){}}
 
+function cardMoney(){return balance()-savings()}
+function autoOn(){return !state||state.auto!==false}
+function drawOps(amount,note){
+  if(!autoOn())return [];
+  const need=Math.round((amount-cardMoney())*100)/100;
+  if(!(need>0))return [];
+  const pot=goals().map(g=>({id:g.id,v:goalSum(g.id)})).filter(x=>x.v>0).sort((a,b)=>a.id==='main'?-1:b.id==='main'?1:b.v-a.v);
+  const ops=[];let rest=Math.min(need,savings());
+  for(const g of pot){if(rest<=0)break;const take=Math.round(Math.min(rest,g.v)*100)/100;rest=Math.round((rest-take)*100)/100;
+    ops.push({t:'set',id:uid(),doc:{date:today(),kind:'save',goal:g.id,amount:-take,note:note||'Добор из копилки',ts:Date.now()}})}
+  return ops}
+function drawMsg(ops){if(!ops.length)return '';const sum=ops.reduce((a,o)=>a-o.doc.amount,0);return ' · из копилки '+fmt(sum)}
 function savings(){let s=0;for(const t of txs)if(t.kind==='save')s+=t.amount;return s}
 function leftovers(){const out=[];let overSum=0;for(const e of envs()){if(e.reserve)continue;const o=spentBy(e.id)-e.limit;if(o>0)overSum+=o}
   for(const e of envs()){const r=e.reserve?e.limit-spentBy(e.id)-overSum:e.limit-spentBy(e.id);if(r>0)out.push({name:e.name,r})}return out}
@@ -772,7 +790,7 @@ function render(){
     const label=t.kind==='expense'?(e?e.name:catName(t.cat)):t.kind==='income'?(t.cat||'Доход'):t.kind==='save'?(t.amount>=0?'В сбережения':'Из сбережений'):'Сверка баланса';
     const sign=t.kind==='expense'?'−':t.kind==='save'?(t.amount>=0?'→ ':'← '):t.amount>=0?'+':'−';
     r.innerHTML='<div class="t"><div></div><small></small></div><div class="a num"></div><button class="rp" type="button" aria-label="Повторить сегодня" title="Повторить сегодня">↻</button><button class="edit" type="button" aria-label="Изменить">✎</button><button class="del" type="button" aria-label="Удалить">✕</button>';
-    const rp=r.querySelector('.rp');if(t.kind==='expense'||t.kind==='income')rp.onclick=async()=>{if(!db)return;try{await commit([{t:'set',id:uid(),doc:{...strip(t),date:today(),ts:Date.now()}}],'Повторено: '+label+' '+fmt(t.amount))}catch(e){}};else rp.style.visibility='hidden';
+    const rp=r.querySelector('.rp');if(t.kind==='expense'||t.kind==='income')rp.onclick=async()=>{if(!db)return;const d=t.kind==='expense'?drawOps(t.amount,'Добор: '+label):[];try{await commit(d.concat([{t:'set',id:uid(),doc:{...strip(t),date:today(),ts:Date.now()}}]),'Повторено: '+label+' '+fmt(t.amount)+drawMsg(d))}catch(e){}};else rp.style.visibility='hidden';
     r.querySelector('.t div').textContent=label;r.querySelector('small').textContent=t.note||'';
     const a=r.querySelector('.a');a.textContent=sign+fmt(Math.abs(t.amount));if((t.kind==='income'||t.kind==='adjust')&&t.amount>=0)a.classList.add('in');
     const ed=r.querySelector('.edit');
@@ -795,6 +813,7 @@ function fillSettings(force){
   if(editRows&&!force)return;
   $('pStart').value=state?state.start:today();
   $('pEnd').value=state?state.end:today();
+  $('setAuto').checked=autoOn();
   editRows=envs().map(e=>({...e}));
   drawRows();
 }
@@ -817,7 +836,7 @@ $('saveSet').onclick=async()=>{
   const s=$('pStart').value,e=$('pEnd').value;
   if(!s||!e||e<s){$('setToast').textContent='Проверь даты: конец периода раньше начала';return}
   const list=editRows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),limit:Math.max(0,Math.round(r.limit||0)),reserve:/резерв/i.test(r.name),...(r.fixed?{fixed:true}:{}),...(r.must?{must:true}:{}),...(r.icon?{icon:r.icon}:{}),...(r.rep?{rep:r.rep}:{})}));
-  try{await commit([{t:'state',val:{...(state||{}),start:s,end:e,envelopes:list}}],'Конверты сохранены');$('setToast').textContent='';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
+  try{await commit([{t:'state',val:{...(state||{}),start:s,end:e,envelopes:list,auto:$('setAuto').checked}}],'Конверты сохранены');$('setToast').textContent='';editRows=null}catch(err){$('setToast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
 // new period
@@ -928,7 +947,15 @@ const svgIc=k=>'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">'+IC[k]+'
 // tabs
 const TAB_IDS=['budget','stats','save'];
 let curTab='budget';
-function showTab(t,quiet){if(!TAB_IDS.includes(t))t='budget';const dir=TAB_IDS.indexOf(t)-TAB_IDS.indexOf(curTab);TAB_IDS.forEach(x=>{const el=$('tab-'+x);el.hidden=x!==t;el.classList.remove('in-l','in-r')});if(dir&&!quiet){void $('tab-'+t).offsetWidth;$('tab-'+t).classList.add(dir>0?'in-r':'in-l')}if(t==='budget'&&curTab!=='budget'){animNext=true;render()}curTab=t;document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));try{localStorage.setItem('tab',t)}catch(e){}window.scrollTo(0,0)}
+function showTab(t,quiet){if(!TAB_IDS.includes(t))t='budget';const dir=TAB_IDS.indexOf(t)-TAB_IDS.indexOf(curTab);
+  TAB_IDS.forEach(x=>{const el=$('tab-'+x);el.hidden=x!==t;el.classList.remove('in-l','in-r')});
+  const prev=curTab;curTab=t;
+  document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
+  try{localStorage.setItem('tab',t)}catch(e){}
+  if(window.scrollY)window.scrollTo(0,0);
+  if(t==='budget'&&prev!=='budget'){animNext=false;render()}
+  if(dir&&!quiet){const el=$('tab-'+t);requestAnimationFrame(()=>{el.classList.add(dir>0?'in-r':'in-l');setTimeout(()=>el.classList.remove('in-l','in-r'),260)})}}
+
 document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 // categories
 const NAMES={food:'Продукты',cafe:'Кафе и фастфуд',market:'Маркетплейсы',fuel:'Бензин',zsd:'ЗСД',wifi:'Wi-Fi',other:'Прочее',gf:'Девушке',subs:'Подписка',svyaz:'Связь',study:'Учёба',cc:'Кредитка',loan:'Автокредит',zhkh:'ЖКХ',tax:'Налоги',anniv:'Годовщина',to:'Отложить на ТО',cmvfdjgka:'Аптека',cmvgt3wzz:'Парковки',reserve:'Резерв'};
@@ -1045,6 +1072,12 @@ function renderExtra(){
     R.appendChild(d)});
 }
 ['fFc','fRep'].forEach(id=>{const d=$(id);d.open=foldOpen(id);d.addEventListener('toggle',()=>foldSave(id,d.open))});
+// keyboard: tuck the tabbar away so it never floats mid-screen
+let kbT=null;const isFld=e=>e&&e.matches&&e.matches('input,textarea,select');
+document.addEventListener('focusin',e=>{if(isFld(e.target)){clearTimeout(kbT);document.body.classList.add('kb')}});
+document.addEventListener('focusout',e=>{if(isFld(e.target)){clearTimeout(kbT);kbT=setTimeout(()=>{if(!isFld(document.activeElement))document.body.classList.remove('kb')},150)}});
+window.addEventListener('pageshow',()=>document.body.classList.remove('kb'));
+if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{const v=window.visualViewport;if(v.height>window.innerHeight-80&&!isFld(document.activeElement))document.body.classList.remove('kb')});
 // swipe between tabs
 let sw=null;
 document.addEventListener('touchstart',e=>{if(shOpen||e.touches.length!==1||e.target.closest('input,textarea,select,.sheet')){sw=null;return}sw={x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
@@ -1119,7 +1152,8 @@ $('addForm').onsubmit=async ev=>{
   if(kind==='save'){doc.goal='main';if(cat==='out')doc.amount=-doc.amount;doc.note=doc.note||(cat==='out'?'Из сбережений':'В сбережения')}
   if(kind==='adjust'){const diff=Math.round((v-balance())*100)/100;if(!diff){$('toast').textContent='Сходится, корректировка не нужна';return}doc.amount=diff;doc.note=doc.note||('Было '+fmt(balance())+', стало '+fmt(v))}
   try{if(editing){doc.ts=editing.ts||doc.ts;const eid=editing.id;await commit([{t:'set',id:eid,doc}],'Запись изменена');stopEdit();return}
-  const msg=kind==='expense'?'Трата записана: '+fmt(doc.amount):kind==='income'?'Доход записан: '+fmt(doc.amount):kind==='save'?'Перевод записан':'Баланс сверен';await commit([{t:'set',id:uid(),doc}],msg);if(kind==='income'&&(doc.cat==='Зарплата'||doc.cat==='Аванс')){gotPay=true;render()}$('amt').value='';$('note').value='';$('toast').textContent=''}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
+  const d=kind==='expense'?drawOps(doc.amount,'Добор: '+catName(doc.cat)):[];
+  const msg=(kind==='expense'?'Трата записана: '+fmt(doc.amount)+drawMsg(d):kind==='income'?'Доход записан: '+fmt(doc.amount):kind==='save'?'Перевод записан':'Баланс сверен');await commit(d.concat([{t:'set',id:uid(),doc}]),msg);if(kind==='income'&&(doc.cat==='Зарплата'||doc.cat==='Аванс')){gotPay=true;render()}$('amt').value='';$('note').value='';$('toast').textContent=''}catch(e){$('toast').textContent='Не сохранилось, попробуй ещё раз'}
 };
 
 try{showTab(localStorage.getItem('tab')||'budget',true)}catch(e){showTab('budget',true)}
